@@ -9,8 +9,8 @@ const firebaseConfig = {
     measurementId: "G-Y492VJ0ZMC"
 };
 
-
 firebase.initializeApp(firebaseConfig);
+
 const database = firebase.database().ref('messages');
 const storage = firebase.storage();
 
@@ -27,7 +27,8 @@ function sendMessage() {
         
         const messageData = {
             text: message,
-            name: name
+            name: name,
+            likes: 0
         };
 
         if (avatarRadio && !fileInput.files.length) {
@@ -46,7 +47,7 @@ function sendMessage() {
                 });
             });
         } else {
-            alert('select an avatar or upload your own.');
+            alert('Select an avatar or upload your own.');
         }
 
         messageInput.value = '';
@@ -66,24 +67,46 @@ function displayMessage(message) {
     const messageContainer = document.getElementById('messageContainer');
     const messageElement = document.createElement('div');
     messageElement.classList.add('message-container');
-    
+    messageElement.setAttribute('data-key', message.key);
+
     if (message.sentByCurrentUser) {
         messageElement.classList.add('sent');
     } else {
         messageElement.classList.add('received');
     }
-    
+
     messageElement.innerHTML = `
         <div class="user-info">
             <img src="${message.avatar}" class="avatar" alt="Avatar">
             <div class="user-name">${message.name}</div>
         </div>
         <div class="message">${message.text}</div>
+        <button class="like-button" onclick="likeMessage('${message.key}')">❤️</button>
+        <span class="like-count">${message.likes !== undefined ? message.likes : 0}</span>
         <div class="timestamp">${formatTimestamp(message.timestamp)}</div>
     `;
-    
+
     messageContainer.appendChild(messageElement);
     messageContainer.scrollTop = messageContainer.scrollHeight;
+}
+
+function likeMessage(messageKey) {
+    const messageRef = database.child(messageKey);
+    messageRef.once('value', (snapshot) => {
+        const messageData = snapshot.val();
+        const newLikeCount = (messageData.likes || 0) + 1;
+        messageRef.update({ likes: newLikeCount });
+        triggerConfetti();
+    });
+}
+
+function updateMessageLikes(updatedMessage) {
+    const messageElements = document.querySelectorAll('.message-container');
+    messageElements.forEach(element => {
+        if (element.getAttribute('data-key') === updatedMessage.key) {
+            element.querySelector('.like-count').innerText = updatedMessage.likes;
+        }
+    });
 }
 
 function formatTimestamp(timestamp) {
@@ -96,7 +119,7 @@ function formatTimestamp(timestamp) {
 function previewCustomAvatar(event) {
     const file = event.target.files[0];
     const avatarPreview = document.getElementById('avatarPreview');
-    
+
     if (file) {
         const reader = new FileReader();
         reader.onload = function(event) {
@@ -135,9 +158,24 @@ function uploadCustomAvatar() {
     }
 }
 
+function triggerConfetti() {
+    confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+    });
+}
+
 database.on('child_added', (data) => {
     const message = data.val();
-    message.sentByCurrentUser = (message.name === 'visitor');
+    message.key = data.key;
+    message.sentByCurrentUser = (message.name === 'Visitor');
     
     displayMessage(message);
+});
+
+database.on('child_changed', (data) => {
+    const updatedMessage = data.val();
+    updatedMessage.key = data.key; 
+    updateMessageLikes(updatedMessage);
 });

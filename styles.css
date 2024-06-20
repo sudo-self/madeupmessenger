@@ -155,4 +155,16 @@ body {
           margin-left: 10px;
       }
 
+.like-button {
+    background: transparent;
+    border: none;
+    color: #0078FF;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.like-count {
+    font-size: 18px;
+    color: #000;
+}
 
